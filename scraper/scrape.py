@@ -99,7 +99,7 @@ def scrape_all() -> list[str]:
 def save_json(saamethas: list[str], path: str) -> None:
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(saamethas, f, ensure_ascii=False, indent=2)
-    print(f'\nSaved {len(saamethas)} saamethas → {path}')
+    print(f'\nSaved {len(saamethas)} saamethas -> {path}')
 
 
 def upload_firestore(saamethas: list[str], service_account: str) -> None:
@@ -110,7 +110,7 @@ def upload_firestore(saamethas: list[str], service_account: str) -> None:
         print('firebase-admin not installed. Run:  pip install firebase-admin')
         return
 
-    print(f'\nUploading {len(saamethas)} saamethas to Firestore…')
+    print(f'\nUploading {len(saamethas)} saamethas to Firestore...')
     cred = credentials.Certificate(service_account)
     firebase_admin.initialize_app(cred)
     db = fs.client()
@@ -131,7 +131,7 @@ def upload_firestore(saamethas: list[str], service_account: str) -> None:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Scrape saamethalu.com → Firestore')
+    parser = argparse.ArgumentParser(description='Scrape saamethalu.com -> Firestore')
     parser.add_argument(
         '--service-account',
         help='Path to Firebase service account JSON (triggers Firestore upload)',
