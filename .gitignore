@@ -1,0 +1,7 @@
+node_modules/
+.expo/
+dist/
+.env
+*.json.json
+scraper/serviceAccount.json
+mobile/dist/
