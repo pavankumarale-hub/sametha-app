@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Sametha",
+    "slug": "sametha-app",
+    "version": "1.0.0",
+    "scheme": "sametha",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E65100"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sametha.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E65100"
+      },
+      "package": "com.sametha.app"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E65100",
+          "defaultChannel": "daily-sametha"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
