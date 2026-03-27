@@ -3,26 +3,32 @@ import {
   View, Text, StyleSheet, ActivityIndicator,
   Share, TouchableOpacity, ScrollView, RefreshControl,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { loadSaamethas, getTodaysSametha } from '../../services/saamethas';
 import { ensureNotificationsScheduled } from '../../services/notifications';
-import { getFavorites, toggleFavorite, isFavorite } from '../../services/favorites';
+import { addFavourite, removeFavourite, getFavourites } from '../../services/cloudFavorites';
+import { useAuth } from '../../context/AuthContext';
+import { T, todayGradient } from '../../theme';
 
 export default function TodayScreen() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saamethas, setSaamethas] = useState<string[]>([]);
   const [displayed, setDisplayed] = useState('');
   const [isToday, setIsToday] = useState(true);
   const [error, setError] = useState('');
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favourited, setFavourited] = useState(false);
+  const [favId, setFavId] = useState<string | null>(null);
 
   async function init(isRefresh = false) {
     try {
       const data = await loadSaamethas();
       setSaamethas(data);
-      setDisplayed(getTodaysSametha(data));
+      const today = getTodaysSametha(data);
+      setDisplayed(today);
       setIsToday(true);
       await ensureNotificationsScheduled(data);
     } catch (e: any) {
@@ -33,47 +39,63 @@ export default function TodayScreen() {
     }
   }
 
+  async function refreshFavState(text: string) {
+    const favs = await getFavourites(user?.uid);
+    const match = favs.find((f) => f.text === text);
+    setFavourited(!!match);
+    setFavId(match?.id ?? null);
+  }
+
   useEffect(() => { init(); }, []);
 
-  // Re-check today's sametha and favorites each time screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (saamethas.length) {
-        setDisplayed(getTodaysSametha(saamethas));
+        const today = getTodaysSametha(saamethas);
+        setDisplayed(today);
         setIsToday(true);
+        refreshFavState(today);
       }
-      getFavorites().then(setFavorites);
-    }, [saamethas])
+    }, [saamethas, user])
   );
 
-  async function handleToggleFavorite() {
-    await toggleFavorite(displayed);
-    setFavorites(await getFavorites());
-  }
+  useEffect(() => {
+    if (displayed) refreshFavState(displayed);
+  }, [displayed, user]);
 
   function showRandom() {
     if (!saamethas.length) return;
-    const idx = Math.floor(Math.random() * saamethas.length);
-    setDisplayed(saamethas[idx]);
+    const next = saamethas[Math.floor(Math.random() * saamethas.length)];
+    setDisplayed(next);
     setIsToday(false);
   }
 
   function showToday() {
-    setDisplayed(getTodaysSametha(saamethas));
+    const today = getTodaysSametha(saamethas);
+    setDisplayed(today);
     setIsToday(true);
   }
 
+  async function handleToggleFavourite() {
+    if (favourited && favId) {
+      await removeFavourite(favId, user?.uid);
+      setFavourited(false);
+      setFavId(null);
+    } else {
+      await addFavourite(displayed, user?.uid);
+      await refreshFavState(displayed);
+    }
+  }
+
   async function shareSametha() {
-    await Share.share({
-      message: `"${displayed}"\n\n— via Sametha App`,
-    });
+    await Share.share({ message: `"${displayed}"\n\n— via Sametha App` });
   }
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#E65100" />
-        <Text style={styles.statusText}>Loading saamethas…</Text>
+        <ActivityIndicator size="large" color={T.primary} />
+        <Text style={styles.statusText}>Loading saamethas...</Text>
       </View>
     );
   }
@@ -81,7 +103,7 @@ export default function TodayScreen() {
   if (error) {
     return (
       <View style={styles.centered}>
-        <MaterialIcons name="wifi-off" size={48} color="#ccc" />
+        <MaterialIcons name="wifi-off" size={48} color={T.textMuted} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); setError(''); init(); }}>
           <Text style={styles.retryText}>Try Again</Text>
@@ -96,41 +118,57 @@ export default function TodayScreen() {
 
   return (
     <ScrollView
+      style={styles.scroll}
       contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); init(true); }} tintColor="#E65100" />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); init(true); }}
+          tintColor={T.primary}
+        />
+      }
     >
-      <Text style={styles.dateText}>{today}</Text>
+      {/* Date */}
+      <Text style={styles.dateText}>{today.toUpperCase()}</Text>
 
+      {/* Back-to-today chip */}
       {!isToday && (
         <TouchableOpacity style={styles.todayChip} onPress={showToday}>
-          <MaterialIcons name="today" size={14} color="#E65100" />
+          <MaterialIcons name="today" size={13} color={T.gold} />
           <Text style={styles.todayChipText}>Back to Today's</Text>
         </TouchableOpacity>
       )}
 
-      <View style={styles.card}>
-        <MaterialIcons name="format-quote" size={36} color="#E65100" style={styles.quoteIcon} />
+      {/* Gradient quote card */}
+      <LinearGradient
+        colors={todayGradient()}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        <MaterialIcons name="format-quote" size={40} color="rgba(255,255,255,0.3)" style={styles.quoteIcon} />
         <Text style={styles.samethaText}>{displayed}</Text>
-      </View>
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardLabel}>Telugu Proverb</Text>
+          <TouchableOpacity onPress={handleToggleFavourite} hitSlop={12}>
+            <MaterialIcons
+              name={favourited ? 'favorite' : 'favorite-border'}
+              size={22}
+              color={favourited ? '#FF6B6B' : 'rgba(255,255,255,0.6)'}
+            />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
+      {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity style={styles.btn} onPress={shareSametha}>
-          <MaterialIcons name="share" size={20} color="#E65100" />
+          <MaterialIcons name="share" size={19} color={T.text} />
           <Text style={styles.btnText}>Share</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btn} onPress={handleToggleFavorite}>
-          <MaterialIcons
-            name={isFavorite(favorites, displayed) ? 'favorite' : 'favorite-border'}
-            size={20}
-            color="#E65100"
-          />
-          <Text style={styles.btnText}>
-            {isFavorite(favorites, displayed) ? 'Saved' : 'Save'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.btn, styles.btnFilled]} onPress={showRandom}>
-          <MaterialIcons name="shuffle" size={20} color="#fff" />
-          <Text style={[styles.btnText, styles.btnTextFilled]}>Random</Text>
+        <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={showRandom}>
+          <MaterialIcons name="shuffle" size={19} color={T.text} />
+          <Text style={styles.btnText}>Random</Text>
         </TouchableOpacity>
       </View>
 
@@ -140,53 +178,57 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1, backgroundColor: T.bg },
   container: {
-    flexGrow: 1, padding: 20, alignItems: 'center',
-    backgroundColor: '#FFF8F0',
+    flexGrow: 1, paddingHorizontal: 20, paddingTop: 20,
+    paddingBottom: 40, alignItems: 'center', backgroundColor: T.bg,
   },
   centered: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
-    padding: 24, backgroundColor: '#FFF8F0',
+    padding: 24, backgroundColor: T.bg,
   },
   dateText: {
-    fontSize: 13, color: '#999', marginTop: 8, marginBottom: 4,
-    textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600',
+    fontSize: 11, color: T.textMuted, letterSpacing: 1.5, fontWeight: '700',
+    marginBottom: 10,
   },
   todayChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 6,
-    backgroundColor: '#FFF3E0', borderRadius: 20, marginBottom: 8,
-    borderWidth: 1, borderColor: '#FFCC80',
+    paddingHorizontal: 14, paddingVertical: 6,
+    backgroundColor: T.surface2, borderRadius: 20, marginBottom: 12,
+    borderWidth: 1, borderColor: T.border,
   },
-  todayChipText: { fontSize: 12, color: '#E65100', fontWeight: '600' },
+  todayChipText: { fontSize: 12, color: T.gold, fontWeight: '600' },
   card: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 28,
-    width: '100%', marginVertical: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-    borderLeftWidth: 4, borderLeftColor: '#E65100',
+    width: '100%', borderRadius: 24, padding: 28,
+    marginVertical: 12, minHeight: 240,
+    justifyContent: 'space-between',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4, shadowRadius: 16, elevation: 8,
   },
   quoteIcon: { marginBottom: 8 },
   samethaText: {
-    fontSize: 20, lineHeight: 32, color: '#2d2d2d',
-    fontStyle: 'italic',
+    fontSize: 22, lineHeight: 34, color: '#FFFFFF',
+    fontWeight: '500', flex: 1,
   },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  cardFooter: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginTop: 20,
+  },
+  cardLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, fontWeight: '600' },
+  actions: { flexDirection: 'row', gap: 12, marginTop: 16, width: '100%' },
   btn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 22, paddingVertical: 12,
-    borderRadius: 12, borderWidth: 1.5, borderColor: '#E65100',
-    backgroundColor: '#fff',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: T.surface2, borderWidth: 1, borderColor: T.border,
   },
-  btnFilled: { backgroundColor: '#E65100', borderColor: '#E65100' },
-  btnText: { color: '#E65100', fontWeight: '600', fontSize: 15 },
-  btnTextFilled: { color: '#fff' },
-  totalText: { marginTop: 28, color: '#bbb', fontSize: 12 },
-  statusText: { marginTop: 12, color: '#aaa', fontSize: 15 },
-  errorText: { marginTop: 12, color: '#888', textAlign: 'center', fontSize: 15, lineHeight: 22 },
+  btnPrimary: { backgroundColor: T.primary, borderColor: T.primary },
+  btnText: { color: T.text, fontWeight: '600', fontSize: 15 },
+  totalText: { marginTop: 28, color: T.textMuted, fontSize: 12 },
+  statusText: { marginTop: 12, color: T.textSub, fontSize: 15 },
+  errorText: { marginTop: 12, color: T.textSub, textAlign: 'center', fontSize: 15, lineHeight: 22 },
   retryBtn: {
-    marginTop: 20, backgroundColor: '#E65100',
-    paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10,
+    marginTop: 20, backgroundColor: T.primary,
+    paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12,
   },
   retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

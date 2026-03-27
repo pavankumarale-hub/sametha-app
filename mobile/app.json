@@ -33,7 +33,9 @@
           "color": "#E65100",
           "defaultChannel": "daily-sametha"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

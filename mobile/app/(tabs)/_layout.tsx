@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { T } from '../../theme';
 
 type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
 
@@ -11,12 +12,19 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: '#E65100' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700' },
-        tabBarActiveTintColor: '#E65100',
-        tabBarInactiveTintColor: '#aaa',
-        tabBarStyle: { borderTopColor: '#f0e8e0', backgroundColor: '#fff' },
+        headerStyle: { backgroundColor: T.bg },
+        headerTintColor: T.text,
+        headerTitleStyle: { fontWeight: '700', color: T.text },
+        tabBarActiveTintColor: T.primary,
+        tabBarInactiveTintColor: T.textMuted,
+        tabBarStyle: {
+          backgroundColor: T.surface,
+          borderTopColor: T.border,
+          borderTopWidth: 1,
+          paddingBottom: 4,
+          height: 60,
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
       <Tabs.Screen

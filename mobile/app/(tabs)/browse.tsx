@@ -6,14 +6,17 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { loadSaamethas } from '../../services/saamethas';
-import { getFavorites, toggleFavorite, isFavorite } from '../../services/favorites';
+import { addFavourite, removeFavourite, getFavourites, Favourite } from '../../services/cloudFavorites';
+import { useAuth } from '../../context/AuthContext';
+import { T } from '../../theme';
 
 export default function BrowseScreen() {
+  const { user } = useAuth();
   const [all, setAll] = useState<string[]>([]);
   const [filtered, setFiltered] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favourites, setFavourites] = useState<Favourite[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -26,8 +29,8 @@ export default function BrowseScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      getFavorites().then(setFavorites);
-    }, [])
+      getFavourites(user?.uid).then(setFavourites);
+    }, [user])
   );
 
   useEffect(() => {
@@ -39,9 +42,16 @@ export default function BrowseScreen() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, all]);
 
-  async function handleToggleFavorite(sametha: string) {
-    await toggleFavorite(sametha);
-    setFavorites(await getFavorites());
+  const isFav = (text: string) => favourites.some((f) => f.text === text);
+
+  async function handleToggleFav(text: string) {
+    const match = favourites.find((f) => f.text === text);
+    if (match) {
+      await removeFavourite(match.id, user?.uid);
+    } else {
+      await addFavourite(text, user?.uid);
+    }
+    getFavourites(user?.uid).then(setFavourites);
   }
 
   async function share(sametha: string) {
@@ -51,7 +61,7 @@ export default function BrowseScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#E65100" />
+        <ActivityIndicator size="large" color={T.primary} />
       </View>
     );
   }
@@ -60,11 +70,11 @@ export default function BrowseScreen() {
     <View style={styles.container}>
       {/* Search bar */}
       <View style={styles.searchBox}>
-        <MaterialIcons name="search" size={20} color="#aaa" />
+        <MaterialIcons name="search" size={20} color={T.textMuted} />
         <TextInput
           style={styles.input}
-          placeholder="Search saamethas…"
-          placeholderTextColor="#bbb"
+          placeholder="Search saamethas..."
+          placeholderTextColor={T.textMuted}
           value={query}
           onChangeText={setQuery}
           returnKeyType="search"
@@ -72,7 +82,7 @@ export default function BrowseScreen() {
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
-            <MaterialIcons name="cancel" size={18} color="#bbb" />
+            <MaterialIcons name="cancel" size={18} color={T.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -92,13 +102,13 @@ export default function BrowseScreen() {
             <Text style={styles.rowText}>{item}</Text>
             <View style={styles.rowActions}>
               <TouchableOpacity onPress={() => share(item)} hitSlop={8}>
-                <MaterialIcons name="share" size={18} color="#E65100" />
+                <MaterialIcons name="share" size={18} color={T.textMuted} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleToggleFavorite(item)} hitSlop={8}>
+              <TouchableOpacity onPress={() => handleToggleFav(item)} hitSlop={8}>
                 <MaterialIcons
-                  name={isFavorite(favorites, item) ? 'favorite' : 'favorite-border'}
+                  name={isFav(item) ? 'favorite' : 'favorite-border'}
                   size={18}
-                  color="#E65100"
+                  color={isFav(item) ? '#FF6B6B' : T.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -115,23 +125,22 @@ export default function BrowseScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8F0' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: T.bg },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.bg },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fff', margin: 12, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    backgroundColor: T.surface2, margin: 12, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderWidth: 1, borderColor: T.border,
   },
-  input: { flex: 1, fontSize: 15, color: '#333' },
-  count: { paddingHorizontal: 16, paddingBottom: 6, fontSize: 12, color: '#aaa' },
+  input: { flex: 1, fontSize: 15, color: T.text },
+  count: { paddingHorizontal: 16, paddingBottom: 6, fontSize: 12, color: T.textMuted },
   row: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff',
+    paddingHorizontal: 16, paddingVertical: 16, backgroundColor: T.bg,
   },
-  rowText: { flex: 1, fontSize: 15, color: '#333', lineHeight: 22, marginRight: 8 },
-  rowActions: { flexDirection: 'row', gap: 14 },
-  sep: { height: 1, backgroundColor: '#F5EDE4', marginLeft: 16 },
-  empty: { textAlign: 'center', color: '#bbb', marginTop: 40, fontSize: 15 },
+  rowText: { flex: 1, fontSize: 15, color: T.text, lineHeight: 22, marginRight: 8 },
+  rowActions: { flexDirection: 'row', gap: 16 },
+  sep: { height: 1, backgroundColor: T.border, marginLeft: 16 },
+  empty: { textAlign: 'center', color: T.textMuted, marginTop: 40, fontSize: 15 },
 });
