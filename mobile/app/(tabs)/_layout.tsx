@@ -1,25 +1,21 @@
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { T } from '../../theme';
-
-type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
-
-function TabIcon({ name, color }: { name: IconName; color: string }) {
-  return <MaterialIcons name={name} size={24} color={color} />;
-}
+import { useTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
+  const { theme } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: T.bg },
-        headerTintColor: T.text,
-        headerTitleStyle: { fontWeight: '700', color: T.text },
-        tabBarActiveTintColor: T.primary,
-        tabBarInactiveTintColor: T.textMuted,
+        headerStyle: { backgroundColor: theme.bg },
+        headerTintColor: theme.text,
+        headerTitleStyle: { fontWeight: '700', color: theme.text },
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: {
-          backgroundColor: T.surface,
-          borderTopColor: T.border,
+          backgroundColor: theme.surface,
+          borderTopColor: theme.border,
           borderTopWidth: 1,
           paddingBottom: 4,
           height: 60,
@@ -32,28 +28,28 @@ export default function TabLayout() {
         options={{
           title: "Today's Sametha",
           tabBarLabel: 'Today',
-          tabBarIcon: ({ color }) => <TabIcon name="wb-sunny" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="wb-sunny" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="browse"
         options={{
           title: 'Browse',
-          tabBarIcon: ({ color }) => <TabIcon name="menu-book" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="menu-book" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="favourites"
         options={{
           title: 'Favourites',
-          tabBarIcon: ({ color }) => <TabIcon name="favorite" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="favorite" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="settings" size={24} color={color} />,
         }}
       />
     </Tabs>

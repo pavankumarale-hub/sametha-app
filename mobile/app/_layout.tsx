@@ -7,27 +7,36 @@ import * as WebBrowser from 'expo-web-browser';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { requestPermissions } from '../services/notifications';
 import { AuthProvider } from '../context/AuthContext';
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
 WebBrowser.maybeCompleteAuthSession();
+
+function AppShell() {
+  const { isDark } = useTheme();
+  return (
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
+}
 
 export default function RootLayout() {
   useEffect(() => {
     requestPermissions();
     SplashScreen.hideAsync();
-
-    const sub = Notifications.addNotificationResponseReceivedListener(() => {
-      // Notification tap lands user on Today tab (default route)
-    });
+    const sub = Notifications.addNotificationResponseReceivedListener(() => {});
     return () => sub.remove();
   }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }} />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TextInput, StyleSheet,
   ActivityIndicator, TouchableOpacity, Share,
@@ -8,10 +8,13 @@ import { useFocusEffect } from 'expo-router';
 import { loadSaamethas } from '../../services/saamethas';
 import { addFavourite, removeFavourite, getFavourites, Favourite } from '../../services/cloudFavorites';
 import { useAuth } from '../../context/AuthContext';
-import { T } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function BrowseScreen() {
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+
   const [all, setAll] = useState<string[]>([]);
   const [filtered, setFiltered] = useState<string[]>([]);
   const [query, setQuery] = useState('');
@@ -20,18 +23,12 @@ export default function BrowseScreen() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    loadSaamethas().then((data) => {
-      setAll(data);
-      setFiltered(data);
-      setLoading(false);
-    });
+    loadSaamethas().then((data) => { setAll(data); setFiltered(data); setLoading(false); });
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      getFavourites(user?.uid).then(setFavourites);
-    }, [user])
-  );
+  useFocusEffect(useCallback(() => {
+    getFavourites(user?.uid).then(setFavourites);
+  }, [user]));
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -46,35 +43,23 @@ export default function BrowseScreen() {
 
   async function handleToggleFav(text: string) {
     const match = favourites.find((f) => f.text === text);
-    if (match) {
-      await removeFavourite(match.id, user?.uid);
-    } else {
-      await addFavourite(text, user?.uid);
-    }
+    if (match) await removeFavourite(match.id, user?.uid);
+    else await addFavourite(text, user?.uid);
     getFavourites(user?.uid).then(setFavourites);
   }
 
-  async function share(sametha: string) {
-    await Share.share({ message: `"${sametha}"\n\n— via Sametha App` });
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={T.primary} />
-      </View>
-    );
-  }
+  if (loading) return (
+    <View style={s.centered}><ActivityIndicator size="large" color={theme.primary} /></View>
+  );
 
   return (
-    <View style={styles.container}>
-      {/* Search bar */}
-      <View style={styles.searchBox}>
-        <MaterialIcons name="search" size={20} color={T.textMuted} />
+    <View style={s.container}>
+      <View style={s.searchBox}>
+        <MaterialIcons name="search" size={20} color={theme.textMuted} />
         <TextInput
-          style={styles.input}
+          style={s.input}
           placeholder="Search saamethas..."
-          placeholderTextColor={T.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={query}
           onChangeText={setQuery}
           returnKeyType="search"
@@ -82,12 +67,12 @@ export default function BrowseScreen() {
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
-            <MaterialIcons name="cancel" size={18} color={T.textMuted} />
+            <MaterialIcons name="cancel" size={18} color={theme.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
-      <Text style={styles.count}>
+      <Text style={s.count}>
         {filtered.length.toLocaleString()}
         {query ? ` of ${all.length.toLocaleString()}` : ''} saamethas
       </Text>
@@ -98,49 +83,45 @@ export default function BrowseScreen() {
         initialNumToRender={20}
         windowSize={5}
         renderItem={({ item }) => (
-          <View style={styles.row}>
-            <Text style={styles.rowText}>{item}</Text>
-            <View style={styles.rowActions}>
-              <TouchableOpacity onPress={() => share(item)} hitSlop={8}>
-                <MaterialIcons name="share" size={18} color={T.textMuted} />
+          <View style={s.row}>
+            <Text style={s.rowText}>{item}</Text>
+            <View style={s.rowActions}>
+              <TouchableOpacity onPress={() => Share.share({ message: `"${item}"\n\n— via Sametha App` })} hitSlop={8}>
+                <MaterialIcons name="share" size={18} color={theme.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleToggleFav(item)} hitSlop={8}>
                 <MaterialIcons
                   name={isFav(item) ? 'favorite' : 'favorite-border'}
                   size={18}
-                  color={isFav(item) ? '#FF6B6B' : T.textMuted}
+                  color={isFav(item) ? '#FF6B6B' : theme.textMuted}
                 />
               </TouchableOpacity>
             </View>
           </View>
         )}
-        ItemSeparatorComponent={() => <View style={styles.sep} />}
+        ItemSeparatorComponent={() => <View style={s.sep} />}
         contentContainerStyle={{ paddingBottom: 24 }}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No saamethas match your search.</Text>
-        }
+        ListEmptyComponent={<Text style={s.empty}>No saamethas match your search.</Text>}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.bg },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.bg },
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: T.surface2, margin: 12, borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1, borderColor: T.border,
-  },
-  input: { flex: 1, fontSize: 15, color: T.text },
-  count: { paddingHorizontal: 16, paddingBottom: 6, fontSize: 12, color: T.textMuted },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 16, backgroundColor: T.bg,
-  },
-  rowText: { flex: 1, fontSize: 15, color: T.text, lineHeight: 22, marginRight: 8 },
-  rowActions: { flexDirection: 'row', gap: 16 },
-  sep: { height: 1, backgroundColor: T.border, marginLeft: 16 },
-  empty: { textAlign: 'center', color: T.textMuted, marginTop: 40, fontSize: 15 },
-});
+function makeStyles(theme: ReturnType<typeof import('../../theme').buildTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg },
+    searchBox: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: theme.surface2, margin: 12, borderRadius: 14,
+      paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: theme.border,
+    },
+    input: { flex: 1, fontSize: 15, color: theme.text },
+    count: { paddingHorizontal: 16, paddingBottom: 6, fontSize: 12, color: theme.textMuted },
+    row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, backgroundColor: theme.bg },
+    rowText: { flex: 1, fontSize: 15, color: theme.text, lineHeight: 22, marginRight: 8 },
+    rowActions: { flexDirection: 'row', gap: 16 },
+    sep: { height: 1, backgroundColor: theme.border, marginLeft: 16 },
+    empty: { textAlign: 'center', color: theme.textMuted, marginTop: 40, fontSize: 15 },
+  });
+}
