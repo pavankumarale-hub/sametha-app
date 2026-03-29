@@ -16,6 +16,9 @@ export { User };
 export function useGoogleAuth() {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    // Expo Go on Android needs a client ID for this platform;
+    // reuse the web client which works for development.
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   return { request, response, promptAsync };

@@ -12,6 +12,7 @@ import {
 } from '../../services/cloudFavorites';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { Theme } from '../../theme';
 
 export default function FavouritesScreen() {
   const { user } = useAuth();
@@ -165,7 +166,7 @@ export default function FavouritesScreen() {
   );
 }
 
-function makeStyles(theme: ReturnType<typeof import('../../theme').buildTheme>) {
+function makeStyles(theme: Theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     tabsScroll: { maxHeight: 54, borderBottomWidth: 1, borderBottomColor: theme.border },

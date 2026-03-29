@@ -9,6 +9,7 @@ import { loadSaamethas } from '../../services/saamethas';
 import { addFavourite, removeFavourite, getFavourites, Favourite } from '../../services/cloudFavorites';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { Theme } from '../../theme';
 
 export default function BrowseScreen() {
   const { user } = useAuth();
@@ -107,7 +108,7 @@ export default function BrowseScreen() {
   );
 }
 
-function makeStyles(theme: ReturnType<typeof import('../../theme').buildTheme>) {
+function makeStyles(theme: Theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg },

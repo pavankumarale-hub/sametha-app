@@ -1,6 +1,9 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore – getReactNativePersistence is in the RN bundle but not in the TS types
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -12,5 +15,10 @@ const firebaseConfig = {
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+// Use AsyncStorage persistence so auth survives app restarts
+export const auth = getApps().length === 1
+  ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
+  : getAuth(app);
+
 export const db = getFirestore(app);
-export const auth = getAuth(app);

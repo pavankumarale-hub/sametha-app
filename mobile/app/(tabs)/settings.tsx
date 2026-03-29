@@ -1,10 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Switch, TouchableOpacity,
-  Platform, Alert, ScrollView, Modal, Image,
+  Alert, ScrollView, Modal, Image,
   ActivityIndicator, TextInput,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateProfile } from 'firebase/auth';
@@ -18,7 +17,7 @@ import { loadSaamethas } from '../../services/saamethas';
 import { useGoogleAuth, signInWithGoogleToken, signOut } from '../../services/auth';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { ColorSchemeName, schemeLabels } from '../../theme';
+import { Theme, ColorSchemeName, schemeLabels } from '../../theme';
 
 const SCHEME_PREVIEWS: Record<ColorSchemeName, [string, string]> = {
   cosmic:  ['#1E1040', '#8B5CF6'],
@@ -28,6 +27,13 @@ const SCHEME_PREVIEWS: Record<ColorSchemeName, [string, string]> = {
   forest:  ['#064E3B', '#10B981'],
   gold:    ['#78350F', '#F59E0B'],
 };
+
+function formatTime(hour: number, minute: number): string {
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  const m = minute.toString().padStart(2, '0');
+  return `${h}:${m} ${ampm}`;
+}
 
 export default function SettingsScreen() {
   const { user } = useAuth();
@@ -40,13 +46,15 @@ export default function SettingsScreen() {
   const [newName, setNewName] = useState('');
 
   const [enabled, setEnabled] = useState(true);
-  const [time, setTime] = useState(() => { const d = new Date(); d.setHours(DEFAULT_HOUR, DEFAULT_MINUTE, 0, 0); return d; });
-  const [showPicker, setShowPicker] = useState(false);
+  const [hour, setHour] = useState(DEFAULT_HOUR);
+  const [minute, setMinute] = useState(DEFAULT_MINUTE);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getNotificationTime().then(({ hour, minute }) => {
-      const d = new Date(); d.setHours(hour, minute, 0, 0); setTime(d);
+    getNotificationTime().then(({ hour: h, minute: m }) => {
+      setHour(h);
+      setMinute(m);
     });
   }, []);
 
@@ -68,9 +76,8 @@ export default function SettingsScreen() {
     setEditingName(false);
   }
 
-  async function applyTimeChange(selected: Date) {
+  async function applyTimeChange(h: number, m: number) {
     setSaving(true);
-    const h = selected.getHours(), m = selected.getMinutes();
     await saveNotificationTime(h, m);
     if (enabled) {
       try { await scheduleNotifications(await loadSaamethas(), h, m); }
@@ -79,18 +86,15 @@ export default function SettingsScreen() {
     setSaving(false);
   }
 
-  function onPickerChange(_: DateTimePickerEvent, selected?: Date) {
-    if (Platform.OS === 'android') setShowPicker(false);
-    if (!selected) return;
-    setTime(selected);
-    applyTimeChange(selected);
-  }
-
   async function handleEnableToggle(value: boolean) {
     setEnabled(value);
     if (value) {
-      if (!await requestPermissions()) { setEnabled(false); Alert.alert('Permission required', 'Enable notifications in device Settings.'); return; }
-      await scheduleNotifications(await loadSaamethas(), time.getHours(), time.getMinutes());
+      if (!await requestPermissions()) {
+        setEnabled(false);
+        Alert.alert('Permission required', 'Enable notifications in device Settings.');
+        return;
+      }
+      await scheduleNotifications(await loadSaamethas(), hour, minute);
     } else {
       const { cancelAllScheduledNotificationsAsync } = await import('expo-notifications');
       await cancelAllScheduledNotificationsAsync();
@@ -98,7 +102,10 @@ export default function SettingsScreen() {
   }
 
   async function handleTestNotification() {
-    if (!await requestPermissions()) { Alert.alert('Permission required', 'Enable notifications in Settings.'); return; }
+    if (!await requestPermissions()) {
+      Alert.alert('Permission required', 'Enable notifications in Settings.');
+      return;
+    }
     const saamethas = await loadSaamethas();
     await sendTestNotification(saamethas[Math.floor(Math.random() * saamethas.length)]);
     Alert.alert('Test sent!', 'You will receive a notification in 3 seconds.');
@@ -111,7 +118,6 @@ export default function SettingsScreen() {
       <Text style={s.sectionLabel}>ACCOUNT</Text>
       {user ? (
         <View style={s.card}>
-          {/* Profile header */}
           <LinearGradient colors={[theme.primary + '44', theme.surface2]} style={s.profileGrad}>
             {user.photoURL
               ? <Image source={{ uri: user.photoURL }} style={s.avatar} />
@@ -127,10 +133,7 @@ export default function SettingsScreen() {
               <MaterialIcons name="edit" size={20} color={theme.primary} />
             </TouchableOpacity>
           </LinearGradient>
-
           <View style={s.divider} />
-
-          {/* Sign out */}
           <TouchableOpacity style={s.menuRow} onPress={() =>
             Alert.alert('Sign out', 'Are you sure?', [
               { text: 'Cancel', style: 'cancel' },
@@ -159,7 +162,6 @@ export default function SettingsScreen() {
       {/* ── APPEARANCE ── */}
       <Text style={s.sectionLabel}>APPEARANCE</Text>
       <View style={s.card}>
-        {/* Dark / Light toggle */}
         <View style={s.menuRow}>
           <MaterialIcons name={isDark ? 'dark-mode' : 'light-mode'} size={22} color={theme.primary} />
           <Text style={s.menuRowLabel}>Dark Mode</Text>
@@ -167,10 +169,7 @@ export default function SettingsScreen() {
             trackColor={{ false: theme.border, true: theme.primary + '88' }}
             thumbColor={isDark ? theme.primary : theme.textMuted} />
         </View>
-
         <View style={s.divider} />
-
-        {/* Color scheme picker */}
         <Text style={s.pickerLabel}>Theme Colour</Text>
         <View style={s.schemeGrid}>
           {(Object.keys(SCHEME_PREVIEWS) as ColorSchemeName[]).map((key) => (
@@ -201,7 +200,7 @@ export default function SettingsScreen() {
         {enabled && (
           <>
             <View style={s.divider} />
-            <TouchableOpacity style={s.menuRow} onPress={() => setShowPicker(true)}>
+            <TouchableOpacity style={s.menuRow} onPress={() => setShowTimePicker(true)}>
               <MaterialIcons name="schedule" size={22} color={theme.primary} />
               <View style={{ flex: 1 }}>
                 <Text style={s.menuRowLabel}>Notification Time</Text>
@@ -209,30 +208,13 @@ export default function SettingsScreen() {
               </View>
               {saving
                 ? <Text style={s.savingText}>Saving...</Text>
-                : <Text style={s.timeValue}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                : <Text style={s.timeValue}>{formatTime(hour, minute)}</Text>
               }
               <MaterialIcons name="chevron-right" size={20} color={theme.textMuted} />
             </TouchableOpacity>
           </>
         )}
       </View>
-
-      {Platform.OS === 'android' && showPicker && (
-        <DateTimePicker value={time} mode="time" display="default" onChange={onPickerChange} />
-      )}
-      {Platform.OS === 'ios' && (
-        <Modal transparent visible={showPicker} animationType="slide" onRequestClose={() => setShowPicker(false)}>
-          <View style={s.modalOverlay}>
-            <View style={s.modalSheet}>
-              <View style={s.modalHeader}>
-                <Text style={s.modalTitle}>Set Notification Time</Text>
-                <TouchableOpacity onPress={() => setShowPicker(false)}><Text style={[s.modalTitle, { color: theme.primary }]}>Done</Text></TouchableOpacity>
-              </View>
-              <DateTimePicker value={time} mode="time" display="spinner" onChange={onPickerChange} style={{ width: '100%' }} />
-            </View>
-          </View>
-        </Modal>
-      )}
 
       {/* ── TEST ── */}
       <Text style={s.sectionLabel}>TESTING</Text>
@@ -249,6 +231,47 @@ export default function SettingsScreen() {
       <View style={s.card}>
         <Text style={s.aboutText}>Telugu proverbs sourced from <Text style={{ color: theme.primary, fontWeight: '600' }}>saamethalu.com</Text></Text>
       </View>
+
+      {/* ── Time Picker Modal ── */}
+      <Modal visible={showTimePicker} transparent animationType="slide" onRequestClose={() => setShowTimePicker(false)}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalSheet}>
+            <Text style={s.modalTitle}>Notification Time</Text>
+            <View style={s.timePickerRow}>
+              {/* Hour picker */}
+              <View style={s.spinnerCol}>
+                <TouchableOpacity onPress={() => setHour((h) => (h + 1) % 24)} style={s.spinBtn}>
+                  <MaterialIcons name="keyboard-arrow-up" size={28} color={theme.primary} />
+                </TouchableOpacity>
+                <Text style={s.spinValue}>{hour.toString().padStart(2, '0')}</Text>
+                <TouchableOpacity onPress={() => setHour((h) => (h + 23) % 24)} style={s.spinBtn}>
+                  <MaterialIcons name="keyboard-arrow-down" size={28} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+              <Text style={s.timeSep}>:</Text>
+              {/* Minute picker */}
+              <View style={s.spinnerCol}>
+                <TouchableOpacity onPress={() => setMinute((m) => (m + 1) % 60)} style={s.spinBtn}>
+                  <MaterialIcons name="keyboard-arrow-up" size={28} color={theme.primary} />
+                </TouchableOpacity>
+                <Text style={s.spinValue}>{minute.toString().padStart(2, '0')}</Text>
+                <TouchableOpacity onPress={() => setMinute((m) => (m + 59) % 60)} style={s.spinBtn}>
+                  <MaterialIcons name="keyboard-arrow-down" size={28} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <Text style={s.timePreview}>{formatTime(hour, minute)}</Text>
+            <View style={s.modalActions}>
+              <TouchableOpacity style={s.modalCancel} onPress={() => setShowTimePicker(false)}>
+                <Text style={{ color: theme.textSub, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.modalSave, { backgroundColor: theme.primary }]} onPress={() => { setShowTimePicker(false); applyTimeChange(hour, minute); }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Edit name modal */}
       <Modal visible={editingName} transparent animationType="fade" onRequestClose={() => setEditingName(false)}>
@@ -273,7 +296,7 @@ export default function SettingsScreen() {
   );
 }
 
-function makeStyles(theme: ReturnType<typeof import('../../theme').buildTheme>) {
+function makeStyles(theme: Theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     content: { padding: 16, paddingBottom: 48 },
@@ -308,13 +331,19 @@ function makeStyles(theme: ReturnType<typeof import('../../theme').buildTheme>) 
     testBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
     testHint: { fontSize: 12, color: theme.textMuted, textAlign: 'center', marginBottom: 16 },
     aboutText: { fontSize: 14, color: theme.textSub, lineHeight: 22, padding: 16 },
+    // Time picker
+    timePickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 16 },
+    spinnerCol: { alignItems: 'center', gap: 4 },
+    spinBtn: { padding: 8 },
+    spinValue: { fontSize: 42, fontWeight: '700', color: theme.text, minWidth: 70, textAlign: 'center' },
+    timeSep: { fontSize: 42, fontWeight: '700', color: theme.text, marginBottom: 8 },
+    timePreview: { textAlign: 'center', fontSize: 15, color: theme.textMuted, marginBottom: 16 },
     // Modals
     modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-    modalSheet: { backgroundColor: theme.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 36 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: theme.border },
-    modalTitle: { fontSize: 16, fontWeight: '700', color: theme.text },
-    nameInput: { backgroundColor: theme.surface2, borderRadius: 12, padding: 14, fontSize: 16, color: theme.text, borderWidth: 1, borderColor: theme.border, margin: 16 },
-    modalActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
+    modalSheet: { backgroundColor: theme.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 36, padding: 20 },
+    modalTitle: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 8 },
+    nameInput: { backgroundColor: theme.surface2, borderRadius: 12, padding: 14, fontSize: 16, color: theme.text, borderWidth: 1, borderColor: theme.border, marginBottom: 16 },
+    modalActions: { flexDirection: 'row', gap: 12 },
     modalCancel: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: theme.surface2, alignItems: 'center', borderWidth: 1, borderColor: theme.border },
     modalSave: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
   });

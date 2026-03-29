@@ -9,9 +9,11 @@ import { useFocusEffect } from 'expo-router';
 import { loadSaamethas, getTodaysSametha } from '../../services/saamethas';
 import { ensureNotificationsScheduled } from '../../services/notifications';
 import { addFavourite, removeFavourite, getFavourites } from '../../services/cloudFavorites';
+import { getMeaning, MeaningData } from '../../services/meanings';
+import { consumePendingSametha } from '../../services/notificationState';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { todayGradient } from '../../theme';
+import { Theme, todayGradient } from '../../theme';
 
 export default function TodayScreen() {
   const { user } = useAuth();
@@ -24,6 +26,9 @@ export default function TodayScreen() {
   const [error, setError] = useState('');
   const [favourited, setFavourited] = useState(false);
   const [favId, setFavId] = useState<string | null>(null);
+  const [meaning, setMeaning] = useState<MeaningData | null>(null);
+  const [meaningError, setMeaningError] = useState<string | null>(null);
+  const [loadingMeaning, setLoadingMeaning] = useState(false);
 
   const s = useMemo(() => makeStyles(theme), [theme]);
 
@@ -50,9 +55,26 @@ export default function TodayScreen() {
     setFavId(match?.id ?? null);
   }
 
+  async function fetchMeaning(text: string) {
+    setMeaning(null);
+    setMeaningError(null);
+    setLoadingMeaning(true);
+    const { data, error } = await getMeaning(text);
+    setMeaning(data);
+    setMeaningError(error);
+    setLoadingMeaning(false);
+  }
+
   useEffect(() => { init(); }, []);
 
   useFocusEffect(useCallback(() => {
+    // Check if we arrived here from a notification tap
+    const pending = consumePendingSametha();
+    if (pending && saamethas.length) {
+      setDisplayed(pending);
+      setIsToday(false);
+      return;
+    }
     if (saamethas.length) {
       const today = getTodaysSametha(saamethas);
       setDisplayed(today);
@@ -61,7 +83,12 @@ export default function TodayScreen() {
     }
   }, [saamethas, user]));
 
-  useEffect(() => { if (displayed) refreshFavState(displayed); }, [displayed, user]);
+  useEffect(() => {
+    if (displayed) {
+      refreshFavState(displayed);
+      fetchMeaning(displayed);
+    }
+  }, [displayed, user]);
 
   function showRandom() {
     if (!saamethas.length) return;
@@ -146,12 +173,49 @@ export default function TodayScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── MEANING SECTION ── */}
+      <View style={s.meaningCard}>
+        <View style={s.meaningSectionHeader}>
+          <MaterialIcons name="menu-book" size={18} color={theme.primary} />
+          <Text style={s.meaningSectionTitle}>MEANING</Text>
+        </View>
+
+        {loadingMeaning ? (
+          <View style={s.meaningLoading}>
+            <ActivityIndicator size="small" color={theme.primary} />
+            <Text style={s.meaningLoadingText}>Fetching meaning...</Text>
+          </View>
+        ) : meaningError ? (
+          <Text style={s.meaningUnavailable}>{meaningError}</Text>
+        ) : meaning ? (
+          <>
+            <Text style={s.meaningText}>{meaning.meaning}</Text>
+
+            <View style={s.exampleBlock}>
+              <View style={s.exampleHeader}>
+                <MaterialIcons name="chat-bubble-outline" size={15} color={theme.primary} />
+                <Text style={s.exampleTitle}>EXAMPLE</Text>
+              </View>
+              <Text style={s.exampleContext}>{meaning.example.context}</Text>
+              <View style={s.conversationBox}>
+                {meaning.example.conversation.map((line, i) => (
+                  <View key={i} style={s.conversationLine}>
+                    <Text style={s.speakerName}>{line.speaker}:</Text>
+                    <Text style={s.speakerLine}>{line.line}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        ) : null}
+      </View>
+
       <Text style={s.totalText}>{saamethas.length.toLocaleString()} saamethas</Text>
     </ScrollView>
   );
 }
 
-function makeStyles(theme: ReturnType<typeof import('../../theme').buildTheme>) {
+function makeStyles(theme: Theme) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: theme.bg },
     container: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40, alignItems: 'center', backgroundColor: theme.bg },
@@ -171,13 +235,36 @@ function makeStyles(theme: ReturnType<typeof import('../../theme').buildTheme>) 
     samethaText: { fontSize: 22, lineHeight: 34, color: '#FFFFFF', fontWeight: '500', flex: 1 },
     cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 },
     cardLabel: { fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, fontWeight: '700' },
-    actions: { flexDirection: 'row', gap: 12, marginTop: 16, width: '100%' },
+    actions: { flexDirection: 'row', gap: 12, marginTop: 4, width: '100%' },
     btn: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
       paddingVertical: 14, borderRadius: 14, backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border,
     },
     btnPrimary: { backgroundColor: theme.primary, borderColor: theme.primary },
     btnText: { color: theme.text, fontWeight: '600', fontSize: 15 },
+    // Meaning card
+    meaningCard: {
+      width: '100%', marginTop: 20, backgroundColor: theme.surface, borderRadius: 20,
+      borderWidth: 1, borderColor: theme.border, padding: 20,
+    },
+    meaningSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    meaningSectionTitle: { fontSize: 11, fontWeight: '700', color: theme.primary, letterSpacing: 1.5 },
+    meaningText: { fontSize: 15, color: theme.text, lineHeight: 24 },
+    meaningLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+    meaningLoadingText: { fontSize: 14, color: theme.textMuted },
+    meaningUnavailable: { fontSize: 14, color: theme.textMuted, lineHeight: 22 },
+    // Example block
+    exampleBlock: { marginTop: 18 },
+    exampleHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+    exampleTitle: { fontSize: 11, fontWeight: '700', color: theme.primary, letterSpacing: 1.5 },
+    exampleContext: { fontSize: 13, color: theme.textSub, fontStyle: 'italic', marginBottom: 12, lineHeight: 20 },
+    conversationBox: {
+      backgroundColor: theme.surface2, borderRadius: 14, padding: 14, gap: 10,
+      borderLeftWidth: 3, borderLeftColor: theme.primary + '88',
+    },
+    conversationLine: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+    speakerName: { fontSize: 14, fontWeight: '700', color: theme.primary, minWidth: 50 },
+    speakerLine: { flex: 1, fontSize: 14, color: theme.text, lineHeight: 21 },
     totalText: { marginTop: 28, color: theme.textMuted, fontSize: 12 },
     statusText: { marginTop: 12, color: theme.textSub, fontSize: 15 },
     errorText: { marginTop: 12, color: theme.textSub, textAlign: 'center', fontSize: 15, lineHeight: 22 },
