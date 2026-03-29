@@ -43,6 +43,11 @@
     "jest-expo": "~54.0.17",
     "typescript": "~5.9.2"
   },
+  "expo": {
+    "install": {
+      "exclude": ["react-native-worklets"]
+    }
+  },
   "jest": {
     "preset": "jest-expo",
     "testPathPattern": "\\.test\\.ts$",
