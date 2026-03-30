@@ -14,7 +14,7 @@ import {
   requestPermissions, DEFAULT_HOUR, DEFAULT_MINUTE,
 } from '../../services/notifications';
 import { loadSaamethas } from '../../services/saamethas';
-import { useGoogleAuth, signInWithGoogleToken, signOut } from '../../services/auth';
+import { signInWithGoogle, signOut } from '../../services/auth';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Theme, ColorSchemeName, schemeLabels } from '../../theme';
@@ -39,8 +39,6 @@ export default function SettingsScreen() {
   const { user } = useAuth();
   const { theme, isDark, colorScheme, toggleDark, setColorScheme } = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { request, response, promptAsync } = useGoogleAuth();
-
   const [signingIn, setSigningIn] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
@@ -58,17 +56,18 @@ export default function SettingsScreen() {
     });
   }, []);
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const idToken = (response.params as any).id_token;
-      if (idToken) {
-        setSigningIn(true);
-        signInWithGoogleToken(idToken)
-          .catch(() => Alert.alert('Sign-in failed', 'Please try again.'))
-          .finally(() => setSigningIn(false));
+  async function handleGoogleSignIn() {
+    setSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      if (e?.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Sign-in failed', 'Please try again.');
       }
+    } finally {
+      setSigningIn(false);
     }
-  }, [response]);
+  }
 
   async function handleSaveName() {
     if (!auth.currentUser || !newName.trim()) return;
@@ -147,9 +146,9 @@ export default function SettingsScreen() {
         <View style={s.card}>
           <Text style={s.signInDesc}>Sign in to sync favourites across all your devices.</Text>
           <TouchableOpacity
-            style={[s.googleBtn, (!request || signingIn) && { opacity: 0.5 }]}
-            onPress={() => promptAsync()}
-            disabled={!request || signingIn}
+            style={[s.googleBtn, signingIn && { opacity: 0.5 }]}
+            onPress={handleGoogleSignIn}
+            disabled={signingIn}
           >
             {signingIn
               ? <ActivityIndicator size="small" color="#fff" />
