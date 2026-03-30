@@ -7,6 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { loadSaamethas } from '../../services/saamethas';
 import { addFavourite, removeFavourite, getFavourites, Favourite } from '../../services/cloudFavorites';
+import { ExpandableSametha } from '../../components/ExpandableSametha';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Theme } from '../../theme';
@@ -84,22 +85,24 @@ export default function BrowseScreen() {
         initialNumToRender={20}
         windowSize={5}
         renderItem={({ item }) => (
-          <View style={s.card}>
-            <View style={[s.cardAccent, { backgroundColor: theme.primary }]} />
-            <Text style={s.cardText}>{item}</Text>
-            <View style={s.cardActions}>
-              <TouchableOpacity style={s.actionBtn} onPress={() => Share.share({ message: `"${item}"\n\n— via Sametha App` })} hitSlop={8}>
-                <MaterialIcons name="share" size={16} color={theme.textMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity style={s.actionBtn} onPress={() => handleToggleFav(item)} hitSlop={8}>
-                <MaterialIcons
-                  name={isFav(item) ? 'favorite' : 'favorite-border'}
-                  size={16}
-                  color={isFav(item) ? '#FF6B6B' : theme.textMuted}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <ExpandableSametha
+            text={item}
+            theme={theme}
+            actions={
+              <>
+                <TouchableOpacity style={s.actionBtn} onPress={() => Share.share({ message: `"${item}"\n\n— via Sametha App` })} hitSlop={8}>
+                  <MaterialIcons name="share" size={16} color={theme.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity style={s.actionBtn} onPress={() => handleToggleFav(item)} hitSlop={8}>
+                  <MaterialIcons
+                    name={isFav(item) ? 'favorite' : 'favorite-border'}
+                    size={16}
+                    color={isFav(item) ? '#FF6B6B' : theme.textMuted}
+                  />
+                </TouchableOpacity>
+              </>
+            }
+          />
         )}
         contentContainerStyle={{ padding: 12, paddingBottom: 24, gap: 8 }}
         ListEmptyComponent={<Text style={s.empty}>No saamethas match your search.</Text>}
@@ -119,15 +122,6 @@ function makeStyles(theme: Theme) {
     },
     input: { flex: 1, fontSize: 15, color: theme.text },
     count: { paddingHorizontal: 16, paddingBottom: 4, fontSize: 12, color: theme.textMuted, letterSpacing: 0.3 },
-    card: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: theme.surface, borderRadius: 14,
-      borderWidth: 1, borderColor: theme.border,
-      overflow: 'hidden',
-    },
-    cardAccent: { width: 3, alignSelf: 'stretch' },
-    cardText: { flex: 1, fontSize: 14, color: theme.text, lineHeight: 21, paddingVertical: 14, paddingHorizontal: 12 },
-    cardActions: { flexDirection: 'row', gap: 4, paddingRight: 10 },
     actionBtn: { padding: 8 },
     empty: { textAlign: 'center', color: theme.textMuted, marginTop: 40, fontSize: 15 },
   });

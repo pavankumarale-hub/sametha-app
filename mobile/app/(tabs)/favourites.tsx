@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
+import { ExpandableSametha } from '../../components/ExpandableSametha';
 import {
   getFavourites, getGroups, createGroup, deleteGroup,
   moveFavouriteToGroup, removeFavourite,
@@ -98,24 +99,26 @@ export default function FavouritesScreen() {
           data={displayed}
           keyExtractor={(f) => f.id}
           renderItem={({ item }) => (
-            <View style={s.row}>
-              {item.groupId && <View style={[s.groupBar, { backgroundColor: groupColor(item.groupId) }]} />}
-              <Text style={s.rowText}>{item.text}</Text>
-              <View style={s.rowActions}>
-                <TouchableOpacity onPress={() => setMoveModal(item)} hitSlop={8}>
-                  <MaterialIcons name="folder-open" size={18} color={theme.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => Share.share({ message: `"${item.text}"\n\n— via Sametha App` })} hitSlop={8}>
-                  <MaterialIcons name="share" size={18} color={theme.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={async () => { await removeFavourite(item.id, user?.uid); refresh(); }} hitSlop={8}>
-                  <MaterialIcons name="favorite" size={18} color="#FF6B6B" />
-                </TouchableOpacity>
-              </View>
-            </View>
+            <ExpandableSametha
+              text={item.text}
+              theme={theme}
+              accentColor={item.groupId ? groupColor(item.groupId) : theme.primary}
+              actions={
+                <>
+                  <TouchableOpacity style={s.actionBtn} onPress={() => setMoveModal(item)} hitSlop={8}>
+                    <MaterialIcons name="folder-open" size={16} color={theme.textMuted} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.actionBtn} onPress={() => Share.share({ message: `"${item.text}"\n\n— via Sametha App` })} hitSlop={8}>
+                    <MaterialIcons name="share" size={16} color={theme.textMuted} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.actionBtn} onPress={async () => { await removeFavourite(item.id, user?.uid); refresh(); }} hitSlop={8}>
+                    <MaterialIcons name="favorite" size={16} color="#FF6B6B" />
+                  </TouchableOpacity>
+                </>
+              }
+            />
           )}
-          ItemSeparatorComponent={() => <View style={s.sep} />}
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 32, gap: 8 }}
         />
       )}
 
@@ -180,11 +183,7 @@ function makeStyles(theme: Theme) {
     empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
     emptyTitle: { fontSize: 17, fontWeight: '600', color: theme.textMuted, marginTop: 14 },
     emptySub: { fontSize: 14, color: theme.textMuted, textAlign: 'center', marginTop: 6, lineHeight: 20 },
-    row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, backgroundColor: theme.bg },
-    groupBar: { width: 3, height: '100%', borderRadius: 2, marginRight: 12 },
-    rowText: { flex: 1, fontSize: 15, color: theme.text, lineHeight: 22, marginRight: 8 },
-    rowActions: { flexDirection: 'row', gap: 14 },
-    sep: { height: 1, backgroundColor: theme.border, marginLeft: 16 },
+    actionBtn: { padding: 8 },
     modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' },
     modalSheet: { backgroundColor: theme.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
     modalTitle: { fontSize: 18, fontWeight: '700', color: theme.text, marginBottom: 16 },
