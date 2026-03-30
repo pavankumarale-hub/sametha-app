@@ -29,6 +29,13 @@ export default function RootLayout() {
     requestPermissions();
     SplashScreen.hideAsync();
 
+    // Handle tap when app was closed (cold start)
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      const sametha = response?.notification.request.content.data?.sametha as string | undefined;
+      if (sametha) setPendingSametha(sametha);
+    });
+
+    // Handle tap when app is already running in background
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const sametha = response.notification.request.content.data?.sametha as string | undefined;
       if (sametha) setPendingSametha(sametha);

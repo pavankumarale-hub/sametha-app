@@ -67,8 +67,18 @@ export default function TodayScreen() {
 
   useEffect(() => { init(); }, []);
 
+  // Once saamethas are loaded, check if a notification tap is pending
+  useEffect(() => {
+    if (!saamethas.length) return;
+    const pending = consumePendingSametha();
+    if (pending) {
+      setDisplayed(pending);
+      setIsToday(false);
+    }
+  }, [saamethas]);
+
   useFocusEffect(useCallback(() => {
-    // Check if we arrived here from a notification tap
+    // Check if we arrived here from a notification tap while app was running
     const pending = consumePendingSametha();
     if (pending && saamethas.length) {
       setDisplayed(pending);
